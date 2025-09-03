@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Live Chat Monitoring</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+
+        .header {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 0.875rem;
+            opacity: 0.8;
+            margin-top: 0.25rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: calc(100vh - 80px);
+        }
+
+        .sidebar {
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .user-list {
+            padding: 0;
+        }
+
+        .user-item {
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            position: relative;
+        }
+
+        .user-item:hover {
+            background: #f8fafc;
+        }
+
+        .user-item.active {
+            background: #dbeafe;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .user-item.live {
+            border-left: 3px solid #10b981;
+        }
+
+        .user-id {
+            font-weight: 500;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .user-status {
+            font-size: 0.75rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-dot.online {
+            background: #10b981;
+        }
+
+        .status-dot.typing {
+            background: #f59e0b;
+            animation: pulse 1s infinite;
+        }
+
+        .status-dot.idle {
+            background: #6b7280;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .conversation-header {
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .conversation-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .conversation-info {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 2rem;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            max-width: 80%;
+        }
+
+        .message.user {
+            background: #dbeafe;
+            margin-left: auto;
+            border: 1px solid #bfdbfe;
+        }
+
+        .message.assistant {
+            background: #f0fdf4;
+            margin-right: auto;
+            border: 1px solid #bbf7d0;
+        }
+
+        .message.streaming {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            position: relative;
+        }
+
+        .message.streaming::after {
+            content: '';
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            background: #f59e0b;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .message-content {
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6b7280;
+        }
+
+        .empty-state h3 {
+            font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stats-bar {
+            padding: 0.75rem 2rem;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 2rem;
+            font-size: 0.875rem;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .stat-label {
+            color: #64748b;
+        }
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: #10b981;
+            font-weight: 500;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        .frozen-indicator {
+            color: #6b7280;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Admin Dashboard</h1>
+        <div class="subtitle">Live Chat Monitoring & Conversation History</div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat">
+            <span class="stat-label">Active Users:</span>
+            <span class="stat-value" id="activeUsersCount">0</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Total Conversations:</span>
+            <span class="stat-value" id="totalConversations">0</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Status:</span>
+            <span class="stat-value" id="connectionStatus">Connecting...</span>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Active Users</h2>
+            </div>
+            <div class="user-list" id="userList">
+                <!-- Users will be populated here -->
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="conversation-header" id="conversationHeader" style="display: none;">
+                <div class="conversation-title" id="conversationTitle">Select a user to view conversation</div>
+                <div class="conversation-info" id="conversationInfo"></div>
+            </div>
+
+            <div class="messages-container" id="messagesContainer">
+                <div class="empty-state">
+                    <h3>Welcome to Admin Dashboard</h3>
+                    <p>Select a user from the sidebar to monitor their conversation in real-time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const userList = document.getElementById('userList');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const conversationHeader = document.getElementById('conversationHeader');
+        const conversationTitle = document.getElementById('conversationTitle');
+        const conversationInfo = document.getElementById('conversationInfo');
+        const activeUsersCount = document.getElementById('activeUsersCount');
+        const totalConversations = document.getElementById('totalConversations');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        let activeUsers = new Map();
+        let conversations = {};
+        let selectedUserId = null;
+        let userStatuses = new Map();
+
+        // Socket connection events
+        socket.on('connect', function() {
+            connectionStatus.textContent = 'Connected';
+            connectionStatus.style.color = '#10b981';
+            socket.emit('join_admin');
+        });
+
+        socket.on('disconnect', function() {
+            connectionStatus.textContent = 'Disconnected';
+            connectionStatus.style.color = '#ef4444';
+        });
+
+        // Admin-specific events
+        socket.on('admin_data', function(data) {
+            console.log('Received admin data:', data);
+            
+            // Update active users
+            data.active_users.forEach(userId => {
+                activeUsers.set(userId, {
+                    id: userId,
+                    joinTime: new Date(),
+                    lastActivity: new Date()
+                });
+            });
+            
+            // Update conversations
+            conversations = data.conversations;
+            
+            updateUI();
+        });
+
+        socket.on('user_joined', function(data) {
+            console.log('User joined:', data);
+            activeUsers.set(data.user_id, {
+                id: data.user_id,
+                joinTime: new Date(data.timestamp),
+                lastActivity: new Date(data.timestamp)
+            });
+            userStatuses.set(data.user_id, 'online');
+            updateUI();
+        });
+
+        socket.on('admin_new_message', function(data) {
+            console.log('New message from user:', data);
+            
+            // Update user activity
+            if (activeUsers.has(data.user_id)) {
+                activeUsers.get(data.user_id).lastActivity = new Date(data.timestamp);
+            }
+            
+            // Add message to conversation
+            if (!conversations[data.conversation_id]) {
+                conversations[data.conversation_id] = [];
+            }
+            
+            conversations[data.conversation_id].push({
+                type: 'user',
+                message: data.message,
+                timestamp: data.timestamp
+            });
+            
+            // Update UI if this user is selected
+            if (selectedUserId === data.user_id) {
+                displayConversation(data.user_id, data.conversation_id);
+            }
+            
+            updateUI();
+        });
+
+        socket.on('admin_token_update', function(data) {
+            console.log('Token update:', data);
+            
+            userStatuses.set(data.user_id, data.is_complete ? 'online' : 'typing');
+            
+            // Update UI if this user is selected
+            if (selectedUserId === data.user_id) {
+                updateStreamingMessage(data);
+            }
+            
+            updateUserStatus(data.user_id);
+        });
+
+        socket.on('admin_error', function(data) {
+            console.log('Error for user:', data);
+            userStatuses.set(data.user_id, 'online');
+            updateUserStatus(data.user_id);
+        });
+
+        function updateUI() {
+            // Update stats
+            activeUsersCount.textContent = activeUsers.size;
+            totalConversations.textContent = Object.keys(conversations).length;
+            
+            // Update user list
+            updateUserList();
+        }
+
+        function updateUserList() {
+            userList.innerHTML = '';
+            
+            activeUsers.forEach((user, userId) => {
+                const userItem = document.createElement('div');
+                userItem.className = `user-item ${selectedUserId === userId ? 'active' : ''}`;
+                userItem.onclick = () => selectUser(userId);
+                
+                const status = userStatuses.get(userId) || 'online';
+                const isLive = status === 'typing';
+                
+                if (isLive) {
+                    userItem.classList.add('live');
+                }
+                
+                userItem.innerHTML = `
+                    <div class="user-id">${userId}</div>
+                    <div class="user-status">
+                        <div class="status-dot ${status}"></div>
+                        ${status === 'typing' ? 'Typing...' : status === 'online' ? 'Online' : 'Idle'}
+                        ${isLive ? '<span class="live-indicator"><span class="live-dot"></span>LIVE</span>' : ''}
+                    </div>
+                `;
+                
+                userList.appendChild(userItem);
+            });
+        }
+
+        function updateUserStatus(userId) {
+            const userItem = userList.querySelector(`[onclick="selectUser('${userId}')"]`);
+            if (userItem) {
+                const status = userStatuses.get(userId) || 'online';
+                const isLive = status === 'typing';
+                
+                userItem.className = `user-item ${selectedUserId === userId ? 'active' : ''} ${isLive ? 'live' : ''}`;
+                
+                const statusElement = userItem.querySelector('.user-status');
+                statusElement.innerHTML = `
+                    <div class="status-dot ${status}"></div>
+                    ${status === 'typing' ? 'Typing...' : status === 'online' ? 'Online' : 'Idle'}
+                    ${isLive ? '<span class="live-indicator"><span class="live-dot"></span>LIVE</span>' : ''}
+                `;
+            }
+        }
+
+        function selectUser(userId) {
+            selectedUserId = userId;
+            updateUserList();
+            
+            // Find conversation for this user
+            const userConversations = Object.entries(conversations).filter(([convId, messages]) => 
+                messages.some(msg => msg.user_id === userId || convId.includes(userId))
+            );
+            
+            if (userConversations.length > 0) {
+                const [conversationId, messages] = userConversations[0];
+                displayConversation(userId, conversationId);
+            } else {
+                displayEmptyConversation(userId);
+            }
+        }
+
+        function displayConversation(userId, conversationId) {
+            conversationHeader.style.display = 'block';
+            conversationTitle.textContent = `Conversation with ${userId}`;
+            
+            const status = userStatuses.get(userId) || 'online';
+            const isLive = status === 'typing';
+            
+            conversationInfo.innerHTML = `
+                Conversation ID: ${conversationId} • 
+                Status: ${status} 
+                ${isLive ? '<span class="live-indicator"><span class="live-dot"></span>LIVE</span>' : '<span class="frozen-indicator">Frozen</span>'}
+            `;
+            
+            messagesContainer.innerHTML = '';
+            
+            const messages = conversations[conversationId] || [];
+            messages.forEach(message => {
+                addMessageToDisplay(message);
+            });
+            
+            scrollToBottom();
+        }
+
+        function displayEmptyConversation(userId) {
+            conversationHeader.style.display = 'block';
+            conversationTitle.textContent = `Monitoring ${userId}`;
+            conversationInfo.textContent = 'No messages yet. Waiting for user activity...';
+            
+            messagesContainer.innerHTML = `
+                <div class="empty-state">
+                    <h3>No conversation yet</h3>
+                    <p>This user hasn't started chatting. You'll see messages here in real-time when they do.</p>
+                </div>
+            `;
+        }
+
+        function addMessageToDisplay(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.type}`;
+            
+            const timestamp = new Date(message.timestamp).toLocaleTimeString();
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <div class="message-sender">${message.type === 'user' ? 'User' : 'Assistant'}</div>
+                    <div class="message-time">${timestamp}</div>
+                </div>
+                <div class="message-content">${message.message}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+        }
+
+        let currentStreamingMessage = null;
+
+        function updateStreamingMessage(data) {
+            if (!data.is_complete) {
+                if (!currentStreamingMessage) {
+                    // Create new streaming message
+                    currentStreamingMessage = document.createElement('div');
+                    currentStreamingMessage.className = 'message assistant streaming';
+                    currentStreamingMessage.innerHTML = `
+                        <div class="message-header">
+                            <div class="message-sender">Assistant</div>
+                            <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                        </div>
+                        <div class="message-content"></div>
+                    `;
+                    messagesContainer.appendChild(currentStreamingMessage);
+                }
+                
+                // Update content
+                const contentDiv = currentStreamingMessage.querySelector('.message-content');
+                contentDiv.textContent = data.partial_response;
+                scrollToBottom();
+            } else {
+                // Complete the message
+                if (currentStreamingMessage) {
+                    currentStreamingMessage.classList.remove('streaming');
+                    currentStreamingMessage = null;
+                }
+            }
+        }
+
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Make selectUser function global for onclick handlers
+        window.selectUser = selectUser;
+    </script>
+</body>
+</html>

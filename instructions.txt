@@ -1,0 +1,8 @@
+#lancer un serveur
+llama-server -hf TheBloke/Mistral-7B-Instruct-v0.2-GGUF:Q4_K_M
+#acceder directement
+llama-cli → interface en ligne de commande plus simple.
+
+
+
+llama-cli -m "C:\Users\User\AppData\Local\llama.cpp\TheBloke_Mistral-7B-Instruct-v0.2-GGUF_mistral-7b-instruct-v0.2.Q4_K_M.gguf" --threads 12 --n-gpu-layers 0

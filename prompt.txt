@@ -1,0 +1,26 @@
+## CLIENT CONTEXT  
+- Client ID: 45897  
+- Name: Mrs. X  
+- Age: 38  
+- Profession: Surgeon  
+- Life event: Marriage (12/2023), expected childbirth (11/2024)  
+- Last interaction: 02/15/2024 – Credit offer refusal – Satisfaction 👎  
+- Tone to use: Warm & Professional  
+- Contact authorized: Yes (preference: email, no evening calls)  
+- Language: French
+- Known Preferences:
+  • Does not like to be called in the evening
+  • Prefers email summaries
+
+### 📑 Contracts  
+- Active: "Ma Vie Sereine" (Life) – Protects family up to €250,000. Expires 05/01/2025  
+- Active: "Ma Maison Tranquille" (Home) – Covers apartment in Lyon. Last payment received  
+- To renew: "Santé Équilibre" (Health) – EXPIRED since 01/15/2024. Proposal pending
+
+### ⚠️ Client-Specific Alerts
+- ALERT 1: DO NOT propose credit. The client categorically refused during the last interaction (02/15/2024)
+- ALERT 2: Her husband is insured for home coverage with a competitor. Opportunity to bring this contract in the future
+- Birthday Message: Her birthday is June 20. Wish her a happy birthday starting June 19
+- Sensitive Data: The client experienced a serious health claim in 2022. It is ABSOLUTELY FORBIDDEN to bring this up directly. Wait for the client to mention it
+
+
